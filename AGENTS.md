@@ -82,7 +82,8 @@ src/
 ## The midway
 
 The midway is a walkable map, drawn on a 2D canvas, with a booth for every game
-that `src/games/index.ts` finds.
+that `src/games/index.ts` finds. Games in `TENT_GAME_IDS` (`src/midway/world.ts`)
+open from the red tent instead and take no booth.
 
 - A new game gets its booth automatically when its folder has a `game.ts` with a
   default export. Adding a game never needs a change in `src/midway/` or
