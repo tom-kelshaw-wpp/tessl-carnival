@@ -36,8 +36,6 @@ export interface ThreeCupsState {
   swapIndex: number;
   /** Seconds spent in the current phase, or in the current swap while shuffling. */
   timer: number;
-  /** The highlighted slot for keyboard play. */
-  highlight: number;
   /** The slot picked this hand, once there is one. */
   pickedSlot?: number;
   lastHit?: boolean;
@@ -86,7 +84,6 @@ function startHand(state: ThreeCupsState, hand: number, random: () => number): v
   state.swaps = shuffleSequence(swapCount(hand), random);
   state.swapIndex = 0;
   state.timer = 0;
-  state.highlight = 1;
   state.pickedSlot = undefined;
   state.lastHit = undefined;
 }
@@ -101,7 +98,6 @@ export function createState(random: () => number): ThreeCupsState {
     swaps: [],
     swapIndex: 0,
     timer: 0,
-    highlight: 1,
   };
   startHand(state, 1, random);
   return state;
@@ -131,11 +127,6 @@ export function slotAtPoint(x: number, y: number): number | undefined {
   if (Math.abs(y - REST_Y) > CUP_HEIGHT / 2) return undefined;
   const slot = SLOT_X.findIndex((slotX) => Math.abs(x - slotX) <= CUP_WIDTH / 2);
   return slot === -1 ? undefined : slot;
-}
-
-/** Moves the highlight one slot left (-1) or right (1), stopping at the ends. */
-export function moveHighlight(slot: number, direction: 1 | -1): number {
-  return Math.min(Math.max(slot + direction, 0), 2);
 }
 
 /** Picks the cup in `slot`. Returns false and changes nothing outside the pick step. */
@@ -261,17 +252,6 @@ function draw(ctx: CanvasRenderingContext2D, state: ThreeCupsState) {
     ctx.fill();
   }
 
-  if (state.phase === 'picking') {
-    ctx.fillStyle = colors.text;
-    const x = SLOT_X[state.highlight];
-    ctx.beginPath();
-    ctx.moveTo(x - 14, REST_Y - CUP_HEIGHT / 2 - 34);
-    ctx.lineTo(x + 14, REST_Y - CUP_HEIGHT / 2 - 34);
-    ctx.lineTo(x, REST_Y - CUP_HEIGHT / 2 - 14);
-    ctx.closePath();
-    ctx.fill();
-  }
-
   // Draw back to front, so the cup moving right passes in front.
   for (const placement of [...placements].sort((a, b) => a.y - b.y)) {
     drawCup(ctx, placement.x, placement.y - placement.lift);
@@ -343,21 +323,13 @@ export const threeCups: CarnivalGame = {
     };
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === ' ' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        event.preventDefault();
-      }
+      if (event.key === ' ') event.preventDefault();
       if (state.phase === 'over') {
         if (event.key === 'Enter' || event.key === ' ') restart();
         return;
       }
       if (event.key === '1' || event.key === '2' || event.key === '3') {
         pick(state, Number(event.key) - 1);
-      } else if (state.phase === 'picking' && event.key === 'ArrowLeft') {
-        state.highlight = moveHighlight(state.highlight, -1);
-      } else if (state.phase === 'picking' && event.key === 'ArrowRight') {
-        state.highlight = moveHighlight(state.highlight, 1);
-      } else if (event.key === 'Enter' || event.key === ' ') {
-        pick(state, state.highlight);
       }
     };
 

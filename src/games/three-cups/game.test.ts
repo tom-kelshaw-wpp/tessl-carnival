@@ -10,7 +10,6 @@ import {
   applySwap,
   createState,
   cupPositionDuringSwap,
-  moveHighlight,
   pick,
   pointsForHand,
   shuffleSequence,
@@ -152,13 +151,6 @@ describe('three cups', () => {
     SLOT_X.forEach((x, slot) => expect(slotAtPoint(x, REST_Y)).toBe(slot));
     expect(slotAtPoint(300, REST_Y)).toBeUndefined();
     expect(slotAtPoint(SLOT_X[1], REST_Y - CUP_HEIGHT)).toBeUndefined();
-  });
-
-  it('moves the highlight and stops at both ends', () => {
-    expect(moveHighlight(1, -1)).toBe(0);
-    expect(moveHighlight(0, -1)).toBe(0);
-    expect(moveHighlight(1, 1)).toBe(2);
-    expect(moveHighlight(2, 1)).toBe(2);
   });
 
   describe('pick', () => {

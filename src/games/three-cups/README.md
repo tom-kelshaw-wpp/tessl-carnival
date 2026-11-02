@@ -18,9 +18,7 @@ that hides it.
 ### Controls
 
 - Mouse: click a cup to pick it.
-- Keyboard: press `1`, `2` or `3` to pick the left, middle or right cup. Or move
-  the highlight with the left and right arrow keys, and press `Enter` or `Space`
-  to pick the highlighted cup. The highlight starts on the middle cup each hand.
+- Keyboard: press `1`, `2` or `3` to pick the left, middle or right cup.
 - Picks only count once the shuffle has stopped.
 
 ## Scoring
@@ -47,7 +45,7 @@ carnival's score board when the round ends.
 
 - `game.ts`: the game logic (`createState`, `shuffleSequence`, `applySwap`,
   `swapCount`, `swapSeconds`, `pointsForHand`, `cupPositionDuringSwap`,
-  `slotAtPoint`, `moveHighlight`, `pick`, `step`) and the `threeCups` entry, the
+  `slotAtPoint`, `pick`, `step`) and the `threeCups` entry, the
   default export the midway finds. Every random choice comes from the `random`
   passed in, so tests can pin the shuffle.
 - `game.test.ts`: tests for the game logic.
