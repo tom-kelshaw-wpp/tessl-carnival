@@ -54,6 +54,8 @@ export interface Prop extends Rect {
   kind: PropKind;
   /** Picks a colour scheme, or which kind of cart. */
   variant: number;
+  /** The game this prop opens, for a tent the player can enter. */
+  gameId?: string;
 }
 
 export interface MidwayMap {
@@ -80,6 +82,11 @@ const FIRST_ROW_Y = 9;
 const ROW_SPACING = 3;
 const MIN_ROWS = 2;
 
+/** Games that open from the red tent instead of from a booth. */
+export const TENT_GAME_IDS = ['bar'] as const;
+
+const isTentGame = (id: string) => (TENT_GAME_IDS as readonly string[]).includes(id);
+
 /** Small seeded random numbers, for anything that should look random but stay put. */
 export function seededRandom(seed: number): () => number {
   let s = seed >>> 0;
@@ -96,9 +103,12 @@ export function seededRandom(seed: number): () => number {
  * Lays out the midway for a list of games. Booths line both sides of the
  * avenue, two per row starting by the gate, and the avenue grows as games are
  * added. Slots without a game become "coming soon" booths. Tents, rides and
- * carts fill the space around them.
+ * carts fill the space around them. Games in `TENT_GAME_IDS` take no booth:
+ * they open from the red peaked tent instead.
  */
-export function layoutMidway(gameIds: readonly string[]): MidwayMap {
+export function layoutMidway(allGameIds: readonly string[]): MidwayMap {
+  const gameIds = allGameIds.filter((id) => !isTentGame(id));
+  const tentGameId = allGameIds.find(isTentGame);
   const rows = Math.max(MIN_ROWS, Math.ceil(gameIds.length / 2));
   const avenueEnd = FIRST_ROW_Y + rows * ROW_SPACING;
   const entrance = avenueEnd + 2;
@@ -133,8 +143,10 @@ export function layoutMidway(gameIds: readonly string[]): MidwayMap {
 
   const props: Prop[] = [];
   const add = (kind: PropKind, x: number, y: number, w = 1, h = 1, variant = 0) => {
-    props.push({ kind, x, y, w, h, variant });
+    const prop: Prop = { kind, x, y, w, h, variant };
+    props.push(prop);
     block({ x, y, w, h });
+    return prop;
   };
 
   // Along the back: tents and rides round the big top at the head of the avenue.
@@ -189,7 +201,8 @@ export function layoutMidway(gameIds: readonly string[]): MidwayMap {
   add('bench', 5, side + 3);
   add('balloons', 1, side + 4);
   add('planter', 6, side + 5);
-  add('peaked-tent', 18, side, 4, 3, 1);
+  const redTent = add('peaked-tent', 18, side, 4, 3, 1);
+  if (tentGameId) redTent.gameId = tentGameId;
   add('cart', 17, side + 4, 1, 1, 1);
   add('cart', 21, side + 4, 1, 1, 2);
   add('bench', 19, side + 5);
@@ -445,8 +458,23 @@ export function boothInReach(
   return nearest;
 }
 
-/** A walk to the open tile beside a booth that is closest to `from`. */
-export function pathToBooth(map: MidwayMap, from: Point, booth: BoothSlot): Point[] | undefined {
+/** The tent with a game that the walker is close enough to enter, if any. */
+export function tentInReach(map: MidwayMap, point: Point, reach = BOOTH_REACH): Prop | undefined {
+  let nearest: Prop | undefined;
+  let nearestDistance = reach;
+  for (const prop of map.props) {
+    if (!prop.gameId) continue;
+    const distance = distanceToRect(point, prop);
+    if (distance <= nearestDistance) {
+      nearest = prop;
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
+/** A walk to the open tile beside a booth (or a tent) that is closest to `from`. */
+export function pathToBooth(map: MidwayMap, from: Point, booth: Rect): Point[] | undefined {
   let best: Point[] | undefined;
   let bestLength = Infinity;
   for (let y = booth.y - 1; y <= booth.y + booth.h; y++) {

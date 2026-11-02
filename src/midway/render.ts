@@ -188,6 +188,17 @@ function onPlane(ctx: Ctx, origin: Pt, paint: () => void) {
   ctx.restore();
 }
 
+/**
+ * Draws on a vertical plane facing down-right (parallel to the y axis), like
+ * the gable end of a peaked tent. Local x runs along the plane, local y down.
+ */
+function onSidePlane(ctx: Ctx, origin: Pt, paint: () => void) {
+  ctx.save();
+  ctx.transform(0.894, -0.447, 0, 1, origin[0], origin[1]);
+  paint();
+  ctx.restore();
+}
+
 /** A wooden sign with text, in plane-local coordinates centred on (0, 0). */
 function signBoard(
   ctx: Ctx,
@@ -645,7 +656,7 @@ function carousel(ctx: Ctx, prop: Prop, t: number) {
 // ── Square things ─────────────────────────────────────────────────────────
 
 /** A tent with a ridged roof running along the x axis. */
-function peakedTent(ctx: Ctx, prop: Prop, t: number) {
+function peakedTent(ctx: Ctx, prop: Prop, t: number, name?: string, glow = false) {
   const colors = prop.variant % 2 === 0 ? BLUE : RED;
   const x0 = prop.x + 0.2;
   const x1 = prop.x + prop.w - 0.2;
@@ -731,6 +742,23 @@ function peakedTent(ctx: Ctx, prop: Prop, t: number) {
   const ridgeBack = at(x0 - 0.1, ym, wall + roof);
   flag(ctx, ridgeBack[0], ridgeBack[1], t, palette.gold);
   flag(ctx, ridgeFront[0], ridgeFront[1], t + 1, palette.red);
+
+  // A tent that opens a game has its name over the door.
+  if (name) {
+    onSidePlane(ctx, at(x1 + 0.05, ym, wall + 8), () => {
+      ctx.fillStyle = palette.woodDark;
+      ctx.fillRect(-15, 4, 2, 6);
+      ctx.fillRect(13, 4, 2, 6);
+      signBoard(
+        ctx,
+        name,
+        44,
+        12,
+        { board: palette.wood, edge: palette.woodDark, text: palette.gold },
+        glow,
+      );
+    });
+  }
 }
 
 function wheel(ctx: Ctx, x: number, y: number, r: number) {
@@ -1734,7 +1762,11 @@ export function drawFloaters(ctx: Ctx, floaters: readonly Floater[]) {
 
 // ── Everything else ───────────────────────────────────────────────────────
 
-export function drawProp(ctx: Ctx, prop: Prop, t: number) {
+/**
+ * Draws a prop. `name` is the game a tent opens, for its sign, and `glow`
+ * lights that sign while the tent is in reach.
+ */
+export function drawProp(ctx: Ctx, prop: Prop, t: number, name?: string, glow = false) {
   switch (prop.kind) {
     case 'big-top':
       return bigTop(ctx, prop, t);
@@ -1753,7 +1785,7 @@ export function drawProp(ctx: Ctx, prop: Prop, t: number) {
       );
     }
     case 'peaked-tent':
-      return peakedTent(ctx, prop, t);
+      return peakedTent(ctx, prop, t, name, glow);
     case 'ferris-wheel':
       return ferrisWheel(ctx, prop, t);
     case 'carousel':
