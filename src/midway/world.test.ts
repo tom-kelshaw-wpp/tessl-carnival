@@ -11,11 +11,13 @@ import {
   layoutMidway,
   pathToBooth,
   seededRandom,
+  tentInReach,
   toScreen,
   toTile,
   updateVisitor,
   walk,
 } from './world';
+import { propBounds, propContains } from './render';
 
 describe('layoutMidway', () => {
   it('gives every game its own booth, nearest the gate first', () => {
@@ -85,6 +87,81 @@ describe('layoutMidway', () => {
 
   it('is the same on every visit', () => {
     expect(layoutMidway(['a'])).toEqual(layoutMidway(['a']));
+  });
+});
+
+describe('tent games', () => {
+  const counts = [0, 1, 4, 9, 15];
+  const withBar = (count: number) => [
+    'bar',
+    ...Array.from({ length: count }, (_, i) => `game-${i}`),
+  ];
+
+  it('opens a tent game without using up a booth slot', () => {
+    const plain = layoutMidway(['water-cannon']);
+    const map = layoutMidway(['bar', 'water-cannon']);
+    expect(map.booths.filter((b) => b.gameId).map((b) => b.gameId)).toEqual(['water-cannon']);
+    expect(map.booths).toHaveLength(plain.booths.length);
+    expect(map.height).toBe(plain.height);
+  });
+
+  it('puts the tent game on the red peaked tent, and only there', () => {
+    const map = layoutMidway(['bar', 'water-cannon']);
+    const tents = map.props.filter((p) => p.gameId === 'bar');
+    expect(tents).toHaveLength(1);
+    expect(tents[0]).toMatchObject({ kind: 'peaked-tent', variant: 1 });
+    expect(map.props.filter((p) => p.gameId)).toHaveLength(1);
+    expect(layoutMidway(['water-cannon']).props.some((p) => p.gameId)).toBe(false);
+  });
+
+  it('finds the tent the player walked up to, and nothing out in the open', () => {
+    const map = layoutMidway(['bar', 'water-cannon']);
+    const tent = map.props.find((p) => p.gameId)!;
+    const path = pathToBooth(map, map.spawn, tent)!;
+    expect(path).toBeDefined();
+    expect(tentInReach(map, path.at(-1)!)).toBe(tent);
+    expect(tentInReach(map, map.spawn)).toBeUndefined();
+    expect(tentInReach(map, { x: 2, y: map.height - 2 })).toBeUndefined();
+  });
+
+  it('lets the player reach the tent from the gate, however many games there are', () => {
+    for (const count of counts) {
+      const map = layoutMidway(withBar(count));
+      const tent = map.props.find((p) => p.gameId)!;
+      const path = pathToBooth(map, map.spawn, tent);
+      expect(path, `${count} games`).toBeDefined();
+      expect(tentInReach(map, path!.at(-1)!), `${count} games`).toBe(tent);
+    }
+  });
+
+  it('keeps the billboard clickable round the tent', () => {
+    const map = layoutMidway(['bar', 'water-cannon']);
+    const tent = map.props.find((p) => p.gameId)!;
+    const billboard = map.props.find((p) => p.kind === 'billboard')!;
+    const sign = propBounds(billboard);
+    const banner = { x: (sign.left + sign.right) / 2, y: (sign.top + sign.bottom) / 2 };
+    const box = propBounds(tent);
+    // The banner's centre sits inside the tent's box, but not on the tent as drawn.
+    expect(banner.x >= box.left && banner.x <= box.right && banner.y >= box.top).toBe(true);
+    expect(propContains(tent, banner)).toBe(false);
+    const door = toScreen(tent.x + tent.w - 0.2, tent.y + tent.h / 2);
+    expect(propContains(tent, { x: door.x, y: door.y - 10 })).toBe(true);
+  });
+
+  it('never stacks booths and scenery on the same tile with a tent game', () => {
+    for (const count of counts) {
+      const map = layoutMidway(withBar(count));
+      const taken = new Set<string>();
+      for (const thing of [...map.booths, ...map.props]) {
+        for (let y = thing.y; y < thing.y + thing.h; y++) {
+          for (let x = thing.x; x < thing.x + thing.w; x++) {
+            expect(taken.has(`${x},${y}`), `${count} games: ${x},${y}`).toBe(false);
+            expect(x > 0 && y > 0 && x < map.width - 1 && y < map.height - 1).toBe(true);
+            taken.add(`${x},${y}`);
+          }
+        }
+      }
+    }
   });
 });
 

@@ -2,7 +2,7 @@ import './style.css';
 import { applyTheme, bestScore, type CarnivalGame } from './carnival';
 import { registry } from './games';
 import { startMidway } from './midway/midway';
-import type { BoothSlot } from './midway/world';
+import { TENT_GAME_IDS, type BoothSlot, type Prop } from './midway/world';
 import { carnivalLink, REPO_URL, shareLinks } from './share';
 
 applyTheme();
@@ -10,7 +10,11 @@ applyTheme();
 const app = document.querySelector<HTMLElement>('#app')!;
 let stop: (() => void) | undefined;
 
+/** Games that open from a tent are places, not scored games. */
+const isPlace = (game: CarnivalGame) => (TENT_GAME_IDS as readonly string[]).includes(game.id);
+
 function bestText(game: CarnivalGame): string {
+  if (isPlace(game)) return '';
   const best = bestScore(game.id);
   return best === undefined ? 'No scores yet' : `Best: ${best}`;
 }
@@ -69,7 +73,7 @@ function renderMidway() {
   }
 
   const card = app.querySelector<HTMLElement>('.booth-card')!;
-  const showBooth = (booth: BoothSlot | undefined) => {
+  const showBooth = (booth: BoothSlot | Prop | undefined) => {
     const game = booth?.gameId ? registry.get(booth.gameId) : undefined;
     card.hidden = booth === undefined;
     card.classList.toggle('closed', booth !== undefined && !game);
@@ -80,6 +84,7 @@ function renderMidway() {
     const link = card.querySelector<HTMLAnchorElement>('.play')!;
     link.hidden = !game;
     if (game) link.href = `#/play/${game.id}`;
+    link.textContent = game && isPlace(game) ? 'Enter' : 'Play';
   };
 
   const midway = startMidway(app.querySelector('canvas')!, {
