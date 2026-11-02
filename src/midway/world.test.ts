@@ -17,6 +17,7 @@ import {
   updateVisitor,
   walk,
 } from './world';
+import { propBounds, propContains } from './render';
 
 describe('layoutMidway', () => {
   it('gives every game its own booth, nearest the gate first', () => {
@@ -131,6 +132,20 @@ describe('tent games', () => {
       expect(path, `${count} games`).toBeDefined();
       expect(tentInReach(map, path!.at(-1)!), `${count} games`).toBe(tent);
     }
+  });
+
+  it('keeps the billboard clickable round the tent', () => {
+    const map = layoutMidway(['bar', 'water-cannon']);
+    const tent = map.props.find((p) => p.gameId)!;
+    const billboard = map.props.find((p) => p.kind === 'billboard')!;
+    const sign = propBounds(billboard);
+    const banner = { x: (sign.left + sign.right) / 2, y: (sign.top + sign.bottom) / 2 };
+    const box = propBounds(tent);
+    // The banner's centre sits inside the tent's box, but not on the tent as drawn.
+    expect(banner.x >= box.left && banner.x <= box.right && banner.y >= box.top).toBe(true);
+    expect(propContains(tent, banner)).toBe(false);
+    const door = toScreen(tent.x + tent.w - 0.2, tent.y + tent.h / 2);
+    expect(propContains(tent, { x: door.x, y: door.y - 10 })).toBe(true);
   });
 
   it('never stacks booths and scenery on the same tile with a tent game', () => {

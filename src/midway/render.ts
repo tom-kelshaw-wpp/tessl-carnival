@@ -656,16 +656,71 @@ function carousel(ctx: Ctx, prop: Prop, t: number) {
 // ── Square things ─────────────────────────────────────────────────────────
 
 /** A tent with a ridged roof running along the x axis. */
-function peakedTent(ctx: Ctx, prop: Prop, t: number, name?: string, glow = false) {
-  const colors = prop.variant % 2 === 0 ? BLUE : RED;
+/** Where a peaked tent's walls and roof stand, shared by drawing and clicks. */
+function peakedTentFrame(prop: Prop) {
   const x0 = prop.x + 0.2;
   const x1 = prop.x + prop.w - 0.2;
   const y0 = prop.y + 0.25;
   const y1 = prop.y + prop.h - 0.25;
-  const ym = (y0 + y1) / 2;
-  const wall = 24;
-  const roof = 26;
-  const eave = 0.18;
+  return { x0, x1, y0, y1, ym: (y0 + y1) / 2, wall: 24, roof: 26, eave: 0.18 };
+}
+
+/** The screen outline a peaked tent is drawn in: its walls, eaves and ridge. */
+function peakedTentOutline(prop: Prop): Pt[] {
+  const { x0, x1, y0, y1, ym, wall, roof, eave } = peakedTentFrame(prop);
+  return convexHull([
+    at(x0, y0),
+    at(x1, y0),
+    at(x1, y1),
+    at(x0, y1),
+    at(x0 - 0.1, y0 - eave, wall - 3),
+    at(x1 + 0.1, y0 - eave, wall - 3),
+    at(x1 + 0.1, y1 + eave, wall - 3),
+    at(x0 - 0.1, y1 + eave, wall - 3),
+    at(x0 - 0.1, ym, wall + roof),
+    at(x1 + 0.1, ym, wall + roof),
+    // The name sign over the door, mapped like onSidePlane does.
+    ...(prop.gameId
+      ? [-1, 1].flatMap((sx) =>
+          [-1, 1].map((sy): Pt => {
+            const [ox, oy] = tentSignOrigin(prop);
+            const lx = sx * (TENT_SIGN.width / 2 + 2);
+            const ly = sy * (TENT_SIGN.height / 2 + 2);
+            return [ox + 0.894 * lx, oy - 0.447 * lx + ly];
+          }),
+        )
+      : []),
+  ]);
+}
+
+/** The name sign over a tent's door, in plane-local pixels. */
+const TENT_SIGN = { width: 44, height: 12 };
+
+/** The point on a tent's gable end that its name sign is centred on. */
+function tentSignOrigin(prop: Prop): Pt {
+  const { x1, ym, wall } = peakedTentFrame(prop);
+  return at(x1 + 0.05, ym, wall + 8);
+}
+
+/** The convex hull of some points, in order round the outside. */
+function convexHull(points: readonly Pt[]): Pt[] {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: Pt, a: Pt, b: Pt) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list: Pt[]) => {
+    const out: Pt[] = [];
+    for (const p of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop();
+      out.push(p);
+    }
+    return out.slice(0, -1);
+  };
+  return [...half(sorted), ...half(sorted.reverse())];
+}
+
+function peakedTent(ctx: Ctx, prop: Prop, t: number, name?: string, glow = false) {
+  const colors = prop.variant % 2 === 0 ? BLUE : RED;
+  const { x0, x1, y0, y1, ym, wall, roof, eave } = peakedTentFrame(prop);
 
   poly(ctx, rectPoints({ x: x0 + 0.3, y: y0 + 0.3, w: x1 - x0, h: y1 - y0 }), palette.shadow);
   // The back of the roof, mostly hidden behind the front.
@@ -745,15 +800,15 @@ function peakedTent(ctx: Ctx, prop: Prop, t: number, name?: string, glow = false
 
   // A tent that opens a game has its name over the door.
   if (name) {
-    onSidePlane(ctx, at(x1 + 0.05, ym, wall + 8), () => {
+    onSidePlane(ctx, tentSignOrigin(prop), () => {
       ctx.fillStyle = palette.woodDark;
       ctx.fillRect(-15, 4, 2, 6);
       ctx.fillRect(13, 4, 2, 6);
       signBoard(
         ctx,
         name,
-        44,
-        12,
+        TENT_SIGN.width,
+        TENT_SIGN.height,
         { board: palette.wood, edge: palette.woodDark, text: palette.gold },
         glow,
       );
@@ -1614,6 +1669,23 @@ export function propBounds(prop: Prop): Box {
     top: c.y - footprint - PROP_HEIGHTS[prop.kind],
     bottom: c.y + footprint,
   };
+}
+
+/**
+ * Whether a screen point is on a prop as it is drawn, for clicks. A peaked
+ * tent uses its outline, so its empty corners above the roof stay free for
+ * whatever stands behind it, such as the billboard. Other props use their box.
+ */
+export function propContains(prop: Prop, point: Point): boolean {
+  if (prop.kind === 'peaked-tent') {
+    const outline = peakedTentOutline(prop);
+    return outline.every((a, i) => {
+      const b = outline[(i + 1) % outline.length];
+      return (b[0] - a[0]) * (point.y - a[1]) - (b[1] - a[1]) * (point.x - a[0]) >= 0;
+    });
+  }
+  const b = propBounds(prop);
+  return point.x >= b.left && point.x <= b.right && point.y >= b.top && point.y <= b.bottom;
 }
 
 // ── People ────────────────────────────────────────────────────────────────

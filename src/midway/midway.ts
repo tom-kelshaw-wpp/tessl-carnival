@@ -18,6 +18,7 @@ import {
   label,
   PLAYER_LOOK,
   propBounds,
+  propContains,
   visitorLook,
   type Box,
   type Cloud,
@@ -188,11 +189,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       return point.x >= b.left && point.x <= b.right && point.y >= b.top && point.y <= b.bottom;
     });
   const tentAt = (point: Point) =>
-    map.props.find((prop) => {
-      if (!prop.gameId) return false;
-      const b = propBounds(prop);
-      return point.x >= b.left && point.x <= b.right && point.y >= b.top && point.y <= b.bottom;
-    });
+    map.props.find((prop) => prop.gameId && propContains(prop, point));
 
   const walkToBooth = (booth: BoothSlot | Prop) => {
     player.path = pathToBooth(map, player, booth) ?? [];
